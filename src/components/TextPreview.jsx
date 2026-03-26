@@ -13,9 +13,7 @@
 //  It never dispatches anything — it is purely display.
 // ============================================================
 
-import { FONT_OPTIONS } from "../keyboardData.js";
-import { SIZE_OPTIONS } from "../keyboardData.js";
-import { COLOR_OPTIONS } from "../keyboardData.js";
+import { FONT_OPTIONS, SIZE_OPTIONS, COLOR_OPTIONS } from "../keyboardData.js";
 
 function getStyle(style) {
   const activeFont = FONT_OPTIONS.find(f => f.id === style.font);

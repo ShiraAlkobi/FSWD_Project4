@@ -24,6 +24,9 @@ export default function App() {
   const [foundIndexes, setFoundIndexes] = useState([]);
   const [currentMatch, setCurrentMatch] = useState(0);
 
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
   const currentTypingStyle = useMemo(
     () => ({
       font: kbState.font,
@@ -244,9 +247,6 @@ export default function App() {
           flexDirection: "column",
         }}
       >
-        <LanguageRow language={kbState.language} dispatch={kbDispatch} />
-
-        <Separator />
 
         <StyleRow
           font={kbState.font}
@@ -255,20 +255,39 @@ export default function App() {
           italic={kbState.italic}
           underline={kbState.underline}
           dispatch={kbDispatch}
-        />
+          onToggleLanguagePicker={() => {
+            setShowLanguagePicker((prev) => !prev);
+            setShowColorPicker(false);
+        }}
+        onToggleColorPicker={() => {
+          setShowColorPicker((prev) => !prev);
+          setShowLanguagePicker(false);
+        }}
+/>
 
-        <Separator />
+{showLanguagePicker && (
+  <>
+    <Separator />
+    <LanguageRow language={kbState.language} dispatch={kbDispatch} />
+  </>
+)}
 
-        <ColorRow
-          color={kbState.color}
-          dispatch={kbDispatch}
-          onApplyAll={() => {
-            txtDispatch({
-              type: "APPLY_STYLE_TO_ALL",
-              style: currentTypingStyle,
-            });
-          }}
-        />
+{showColorPicker && (
+  <>
+    <Separator />
+    <ColorRow
+      color={kbState.color}
+      dispatch={kbDispatch}
+      onApplyAll={() => {
+        txtDispatch({
+          type: "APPLY_STYLE_TO_ALL",
+          style: currentTypingStyle,
+        });
+      }}
+    />
+  </>
+)}
+       
 
         <Separator />
 

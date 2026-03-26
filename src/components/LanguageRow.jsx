@@ -13,25 +13,24 @@ import { LANGUAGES } from "../keyboardData.js";
 
 export function LanguageRow({ language, dispatch }) {
   return (
-    <div>
-      <RowLabel>Language</RowLabel>
-
-      <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-        {LANGUAGES.map(lang => (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e0ddd6",
+        borderRadius: 10,
+        padding: 8,
+      }}
+    >
+      <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+        {LANGUAGES.map((lang) => (
           <Key
             key={lang.id}
             label={lang.label}
             variant="lang"
-            active={language === lang.id}          // highlight the active one
+            active={language === lang.id}
             onClick={() => dispatch({ type: "SET_LANGUAGE", id: lang.id })}
           />
         ))}
-
-        <Divider />
-
-        <span style={{ fontSize: 11, color: "#aaa" }}>
-          {LANGUAGES.find(l => l.id === language)?.label} active
-        </span>
       </div>
     </div>
   );

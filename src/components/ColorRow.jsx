@@ -13,32 +13,34 @@ import {COLOR_OPTIONS} from "../keyboardData.js";
 
 export function ColorRow({ color, dispatch, onApplyAll }) {
   return (
-    <div>
-      <RowLabel>Color</RowLabel>
-
-      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-
-        {COLOR_OPTIONS.map(c => (
+    <div
+      style={{
+        background: "#fff",
+        border: "1px solid #e0ddd6",
+        borderRadius: 10,
+        padding: 8,
+      }}
+    >
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        {COLOR_OPTIONS.map((c) => (
           <button
             key={c.id}
             title={c.id}
             onClick={() => dispatch({ type: "SET_COLOR", id: c.id })}
             style={{
-              width:      26,
-              height:     26,
+              width: 26,
+              height: 26,
               borderRadius: "50%",
               background: c.hex,
-              cursor:     "pointer",
-              border:     color === c.id ? "3px solid #7F77DD"   : "2px solid transparent",
-              outline:    color === c.id ? `2px solid ${c.hex}55` : "none",
-              transition: "all 0.12s",
+              cursor: "pointer",
+              border: color === c.id ? "3px solid #7F77DD" : "2px solid transparent",
+              outline: color === c.id ? `2px solid ${c.hex}55` : "none",
             }}
           />
         ))}
 
         <Divider />
 
-        {/* Applies the current color to the entire text buffer — wired in App */}
         <Key
           label="Apply to all"
           variant="special"

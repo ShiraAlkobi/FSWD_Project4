@@ -9,18 +9,38 @@
 // ============================================================
 
 import { Key, Divider, RowLabel } from "./Key.jsx";
-import { FONT_OPTIONS } from "../keyboardData.js";
-import {SIZE_OPTIONS} from "../keyboardData.js";
+import { FONT_OPTIONS, SIZE_OPTIONS } from "../keyboardData.js";
 
-export function StyleRow({ font, size, bold, italic, underline, dispatch }) {
+export function StyleRow({
+  font,
+  size,
+  bold,
+  italic,
+  underline,
+  dispatch,
+  onToggleLanguagePicker,
+  onToggleColorPicker,
+}) {
   return (
     <div>
-      <RowLabel>Style — from cursor</RowLabel>
+      <RowLabel>Style</RowLabel>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
+        <Key
+          label="🌍"
+          variant="lang"
+          onClick={onToggleLanguagePicker}
+        />
 
-        {/* Font family buttons */}
-        {FONT_OPTIONS.map(f => (
+        <Key
+          label="🎨"
+          variant="special"
+          onClick={onToggleColorPicker}
+        />
+
+        <Divider />
+
+        {FONT_OPTIONS.map((f) => (
           <Key
             key={f.id}
             label={f.label}
@@ -32,8 +52,7 @@ export function StyleRow({ font, size, bold, italic, underline, dispatch }) {
 
         <Divider />
 
-        {/* Font size buttons — each "A" is a different size */}
-        {SIZE_OPTIONS.map(s => (
+        {SIZE_OPTIONS.map((s) => (
           <Key
             key={s.id}
             label="A"
@@ -45,11 +64,24 @@ export function StyleRow({ font, size, bold, italic, underline, dispatch }) {
 
         <Divider />
 
-        {/* Bold / Italic / Underline toggles */}
-        <Key label="B" active={bold}      onClick={() => dispatch({ type: "TOGGLE_BOLD"      })} extraStyle={{ fontWeight: 700 }} />
-        <Key label="I" active={italic}    onClick={() => dispatch({ type: "TOGGLE_ITALIC"    })} extraStyle={{ fontStyle: "italic" }} />
-        <Key label="U" active={underline} onClick={() => dispatch({ type: "TOGGLE_UNDERLINE" })} extraStyle={{ textDecoration: "underline" }} />
-
+        <Key
+          label="B"
+          active={bold}
+          onClick={() => dispatch({ type: "TOGGLE_BOLD" })}
+          extraStyle={{ fontWeight: 700 }}
+        />
+        <Key
+          label="I"
+          active={italic}
+          onClick={() => dispatch({ type: "TOGGLE_ITALIC" })}
+          extraStyle={{ fontStyle: "italic" }}
+        />
+        <Key
+          label="U"
+          active={underline}
+          onClick={() => dispatch({ type: "TOGGLE_UNDERLINE" })}
+          extraStyle={{ textDecoration: "underline" }}
+        />
       </div>
     </div>
   );
