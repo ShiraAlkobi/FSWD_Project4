@@ -128,11 +128,25 @@ export default function App() {
   }
 
   // ── File handler ──────────────────────────────────────────────
-  function handleOpenFile(loadedText, filename) {
+  function handleOpenFile(loadedSegments, filename) {
     // Load plain text as a single unstyled segment
-    setSegments([{ text: loadedText, font: 'sans', size: 'md', bold: false, italic: false, underline: false, color: 'black' }])
+    setSegments(loadedSegments)
     setHistory([])
     setCurrentFile(filename)
+  }
+
+  // New file: clear editor and set filename
+  function handleNewFile() {
+    setSegments([])
+    setHistory([])
+    setCurrentFile(null)
+    setFont("sans")
+    setSize("md")
+    setBold(false)
+    setItalic(false)
+    setUnderline(false)
+    setColor("black")
+    setStyleScope("from-now")
   }
 
   // Plain text for saving
@@ -146,7 +160,9 @@ export default function App() {
       padding: '8px 12px', fontFamily: 'sans-serif', boxSizing: 'border-box', gap: 6,
     }}>
 
-      <FileBar currentFile={currentFile} text={plainText} onOpen={handleOpenFile} onFileChange={setCurrentFile} />
+      <FileBar currentFile={currentFile} segments={segments} onOpen={handleOpenFile}
+        onNew={handleNewFile}
+        onFileChange={setCurrentFile} />
 
       <TextPreview segments={segments} />
 
@@ -159,7 +175,7 @@ export default function App() {
         <div style={{ display: 'flex', gap: 10, flex: 1, minHeight: 0 }}>
 
           {/* Left column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 300, flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 220, flexShrink: 0 }}>
             <LanguageRow language={language} onLanguageChange={setLanguage} />
             <hr style={hrStyle} />
             <StyleRow

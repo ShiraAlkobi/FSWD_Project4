@@ -1,34 +1,35 @@
-// ============================================================
-//  useLocalStorage.js
-//  A simple custom hook that wraps localStorage.
-//  Returns functions for save, load, and listing all saved files.
-//
-// ============================================================
-
-const PREFIX = 'file_'
+const PREFIX  = 'vte_file_'
+const VERSION = 1
 
 export function useLocalStorage() {
 
-  // Save a file — key is the filename, value is the text
-  function saveFile(filename, text) {
-    localStorage.setItem(PREFIX + filename, text)
+  function saveFile(filename, segments) {
+    const data = { version: VERSION, segments }
+    localStorage.setItem(PREFIX + filename, JSON.stringify(data))
   }
 
-  // Load a file by filename — returns the text string, or null if not found
   function loadFile(filename) {
-    return localStorage.getItem(PREFIX + filename)
+    const raw = localStorage.getItem(PREFIX + filename)
+    if (!raw) return null
+    try {
+      const data = JSON.parse(raw)
+      if (!data.segments) {
+        // Old plain-text format — wrap in a default segment
+        return [{ text: String(data), font: 'sans', size: 'md', bold: false, italic: false, underline: false, color: 'black' }]
+      }
+      return data.segments
+    } catch {
+      return null
+    }
   }
 
-  // Returns an array of all saved filenames (without the prefix)
   function listFiles() {
     const files = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key.startsWith(PREFIX)) {
-        files.push(key.replace(PREFIX, ''))
-      }
+      if (key.startsWith(PREFIX)) files.push(key.replace(PREFIX, ''))
     }
-    return files
+    return files.sort()
   }
 
   return { saveFile, loadFile, listFiles }

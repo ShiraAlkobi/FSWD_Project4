@@ -1,148 +1,160 @@
 // ============================================================
 //  FileBar.jsx
-//  Handles Save / Save As / Open from localStorage.
+//  File management: New / Save / Save As / Open
 //
 //  Props:
-//    currentFile   – name of the currently open file (or null)
-//    text          – current text in the editor (to save)
-//    onOpen        – called with (text, filename) when user opens a file
-//    onFileChange  – called with filename when current file name changes
+//    currentFile   – filename of the currently open file, or null
+//    segments      – the current segments array (styled text) to save
+//    onOpen        – called with (segments, filename) when a file is opened
+//    onNew         – called with no args to clear the editor
+//    onFileChange  – called with a filename to update currentFile in App
 // ============================================================
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLocalStorage } from '../data/useLocalStorage.js'
 
-export default function FileBar({ currentFile, text, onOpen, onFileChange }) {
+export default function FileBar({ currentFile, segments, onOpen, onNew, onFileChange }) {
   const { saveFile, loadFile, listFiles } = useLocalStorage()
 
-  const [savedFiles,   setSavedFiles]   = useState(() => listFiles()) // list of filenames in LS
-  const [showOpenList, setShowOpenList] = useState(false) // toggle the open dropdown
-  const [message,      setMessage]      = useState('')    // feedback message ("Saved!")
+  const [savedFiles,   setSavedFiles]   = useState([])
+  const [showOpenList, setShowOpenList] = useState(false)
+  const [message,      setMessage]      = useState('')
+  const [isError,      setIsError]      = useState(false)
 
-  // Refresh from localStorage when user actions may have changed available files.
-  function refreshSavedFiles() {
+  // Refresh file list on mount and every time the dropdown opens
+  useEffect(() => {
     setSavedFiles(listFiles())
-  }
+  }, [showOpenList])
 
-  // Show a temporary feedback message for 2 seconds
-  function showMessage(msg) {
+  function showMsg(msg, error = false) {
     setMessage(msg)
-    setTimeout(() => setMessage(''), 2000)
+    setIsError(error)
+    setTimeout(() => setMessage(''), 2500)
   }
 
-  // ── Save ────────────────────────────────────────────────────
-  // Saves to the current file. If no file is open yet, acts as Save As.
+  // ── New ──────────────────────────────────────────────────────
+  // Clears the editor immediately. Name is only asked when saving.
+  function handleNew() {
+    onNew()
+    showMsg('New file — press Save when ready')
+  }
+
+  // ── Save ─────────────────────────────────────────────────────
+  // If a file is already open (currentFile is set), save directly to it.
+  // If no file is open yet (new unsaved file), ask for a name first.
   function handleSave() {
-    if (!currentFile) {
-      handleSaveAs()
-      return
+    if (currentFile) {
+      // File already has a name — just overwrite it
+      saveFile(currentFile, segments)
+      setSavedFiles(listFiles())
+      showMsg(`Saved "${currentFile}"`)
+    } else {
+      // No name yet — ask for one, then save
+      const name = window.prompt('Save — enter a file name:', 'untitled')
+      if (!name || name.trim() === '') return
+      saveFile(name.trim(), segments)
+      onFileChange(name.trim())      // tell App the file now has a name
+      setSavedFiles(listFiles())
+      showMsg(`Saved "${name.trim()}"`)
     }
-    saveFile(currentFile, text)
-    refreshSavedFiles()
-    showMessage(`Saved to "${currentFile}"`)
   }
 
-  // ── Save As ─────────────────────────────────────────────────
-  // Asks the user for a new filename via a simple prompt, then saves.
+  // ── Save As ──────────────────────────────────────────────────
+  // Always asks for a name. Saves under the new name.
+  // The old file (if any) stays in localStorage untouched.
   function handleSaveAs() {
-    const filename = window.prompt('Save as — enter a file name:', currentFile || 'my-text')
-    if (!filename) return                    // user cancelled
-    if (filename.trim() === '') return       // empty name
-    saveFile(filename.trim(), text)
-    refreshSavedFiles()
-    onFileChange(filename.trim())            // update the current file name in App
-    showMessage(`Saved as "${filename.trim()}"`)
+    const name = window.prompt('Save As — enter a file name:', currentFile || 'untitled')
+    if (!name || name.trim() === '') return
+    saveFile(name.trim(), segments)
+    onFileChange(name.trim())        // current file is now the new name
+    setSavedFiles(listFiles())
+    showMsg(`Saved as "${name.trim()}"`)
   }
 
-  // ── Open ────────────────────────────────────────────────────
-  // Shows a dropdown list of all saved files, loads the one clicked.
+  // ── Open ─────────────────────────────────────────────────────
+  // Loads a file from the list and sends it up to App.
   function handleOpenFile(filename) {
     const loaded = loadFile(filename)
-    if (loaded === null) {
-      showMessage('File not found.')
+    if (!loaded) {
+      showMsg('Could not load file.', true)
       return
     }
-    onOpen(loaded, filename)                 // send text + filename up to App
+    onOpen(loaded, filename)         // App sets segments + currentFile
     setShowOpenList(false)
-    showMessage(`Opened "${filename}"`)
+    showMsg(`Opened "${filename}"`)
   }
 
   // ── Render ───────────────────────────────────────────────────
   return (
-    <div style={{ marginBottom: 10 }}>
+    <div>
 
-      {/* Top bar: current filename + buttons */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Button bar */}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
 
         {/* Current file indicator */}
-        <span style={{ fontSize: 13, color: '#555', minWidth: 120 }}>
+        <span style={{ fontSize: 13, color: '#555', minWidth: 110 }}>
           {currentFile
             ? <span>📄 <strong>{currentFile}</strong></span>
             : <span style={{ color: '#aaa' }}>No file open</span>
           }
         </span>
 
-        {/* Save */}
-        <button onClick={handleSave} style={{ ...btnBase, ...greenStyle }}>
-          💾 Save
-        </button>
-
-        {/* Save As */}
-        <button onClick={handleSaveAs} style={{ ...btnBase, ...greenStyle }}>
-          💾 Save As
-        </button>
-
-        {/* Open — toggles the file list below */}
-        <button
-          onClick={() => {
-            const nextOpen = !showOpenList
-            if (nextOpen) refreshSavedFiles()
-            setShowOpenList(nextOpen)
-          }}
-          style={{ ...btnBase, ...blueStyle }}
-        >
+        <button onClick={handleNew}                           style={btn('gray')}>📝 New</button>
+        <button onClick={handleSave}                          style={btn('green')}>💾 Save</button>
+        <button onClick={handleSaveAs}                        style={btn('green')}>💾 Save As</button>
+        <button onClick={() => setShowOpenList(v => !v)}      style={btn('blue')}>
           📂 Open {showOpenList ? '▲' : '▼'}
         </button>
 
         {/* Feedback message */}
         {message && (
-          <span style={{ fontSize: 12, color: '#3B6D11', background: '#EAF3DE', padding: '3px 10px', borderRadius: 6 }}>
+          <span style={{
+            fontSize: 12, padding: '3px 10px', borderRadius: 6,
+            background: isError ? '#FCEBEB' : '#EAF3DE',
+            color:      isError ? '#A32D2D' : '#3B6D11',
+          }}>
             {message}
           </span>
         )}
       </div>
 
-      {/* File list dropdown — only shown when Open is clicked */}
+      {/* File list dropdown */}
       {showOpenList && (
         <div style={{
-          marginTop: 8, background: '#fff', border: '1.5px solid #e0ddd6',
-          borderRadius: 10, padding: 8, display: 'flex', flexDirection: 'column', gap: 4
+          marginTop: 6, background: '#fff',
+          borderWidth: '1.5px', borderStyle: 'solid', borderColor: '#e0ddd6',
+          borderRadius: 10, padding: 8,
+          display: 'flex', flexDirection: 'column', gap: 4,
+          maxHeight: 200, overflowY: 'auto',
         }}>
-
-          {/* Conditional rendering: empty state vs file list */}
           {savedFiles.length === 0
             ? <span style={{ fontSize: 13, color: '#aaa', padding: '4px 8px' }}>No saved files yet.</span>
             : savedFiles.map(filename => (
-                <button
+                <div
                   key={filename}
                   onClick={() => handleOpenFile(filename)}
                   style={{
-                    textAlign: 'left', padding: '6px 10px', borderRadius: 7,
-                    border: '1px solid #e0ddd6', background: currentFile === filename ? '#E6F1FB' : '#fff',
-                    color: '#1a1a1a', fontSize: 13, cursor: 'pointer',
+                    padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 13,
+                    background:  currentFile === filename ? '#E6F1FB' : '#f8f8f8',
+                    borderWidth: '1px', borderStyle: 'solid',
+                    borderColor: currentFile === filename ? '#85B7EB' : '#e0ddd6',
+                    color: '#1a1a1a',
                   }}
                 >
                   📄 {filename}
-                </button>
+                </div>
               ))
           }
-
         </div>
       )}
     </div>
   )
 }
 
-const btnBase   = { height: 32, padding: '0 12px', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontSize: 13 }
-const greenStyle = { background: '#EAF3DE', border: '#97C459', color: '#3B6D11' }
-const blueStyle  = { background: '#E6F1FB', border: '#85B7EB', color: '#185FA5' }
+function btn(color) {
+  const base = { height: 30, padding: '0 10px', borderRadius: 7, borderWidth: '1.5px', borderStyle: 'solid', cursor: 'pointer', fontSize: 12 }
+  if (color === 'green') return { ...base, background: '#EAF3DE', borderColor: '#97C459', color: '#3B6D11' }
+  if (color === 'blue')  return { ...base, background: '#E6F1FB', borderColor: '#85B7EB', color: '#185FA5' }
+  if (color === 'gray')  return { ...base, background: '#f4f4f4', borderColor: '#d0d0d0', color: '#444'    }
+  return base
+}
