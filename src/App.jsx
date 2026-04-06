@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-import { FONTS, SIZES, COLORS } from './data/KeyboardData.js'
+import { FONTS, SIZES, COLORS } from './data/keyboardData.js'
 import TextPreview   from './components/TextPreview.jsx'
 import FileBar       from './components/FileBar.jsx'
 import LanguageRow   from './components/LanguageRow.jsx'
@@ -9,112 +9,183 @@ import ColorRow      from './components/ColorRow.jsx'
 import CharacterGrid from './components/CharacterGrid.jsx'
 import ActionRow     from './components/ActionRow.jsx'
 
+// ── Segment helpers ───────────────────────────────────────────
+// Text is stored as an array of segments: [{ text, font, size, bold, italic, underline, color }, ...]
+// This lets "from now" apply a new style only to newly typed characters.
+
+function makeStyle(font, size, bold, italic, underline, color) {
+  return { font, size, bold, italic, underline, color }
+}
+
+function segmentsToPlainText(segments) {
+  return segments.map(s => s.text).join('')
+}
+
 export default function App() {
 
-  // Style state
-  const [language,  setLanguage]  = useState('en')
-  const [shifted,   setShifted]   = useState(false)
-  const [font,      setFont]      = useState('sans')
-  const [size,      setSize]      = useState('md')
-  const [bold,      setBold]      = useState(false)
-  const [italic,    setItalic]    = useState(false)
-  const [underline, setUnderline] = useState(false)
-  const [color,     setColor]     = useState('black')
+  // ── Style state ───────────────────────────────────────────────
+  const [language,   setLanguage]   = useState('en')
+  const [shifted,    setShifted]    = useState(false)
+  const [font,       setFont]       = useState('sans')
+  const [size,       setSize]       = useState('md')
+  const [bold,       setBold]       = useState(false)
+  const [italic,     setItalic]     = useState(false)
+  const [underline,  setUnderline]  = useState(false)
+  const [color,      setColor]      = useState('black')
+  const [styleScope, setStyleScope] = useState('from-now')
 
-  // Text state
-  const [text,    setText]    = useState('')
-  const [history, setHistory] = useState([])
+  // ── Text state — stored as segments ──────────────────────────
+  const [segments, setSegments] = useState([])  // [{ text, font, size, bold, italic, underline, color }]
+  const [history,  setHistory]  = useState([])  // each entry is a full { segments, font, size, bold, italic, underline, color }
 
-  // // File state (Part B)
-  // const [currentFile, setCurrentFile] = useState(null)
+  // ── File state ────────────────────────────────────────────────
+  const [currentFile, setCurrentFile] = useState(null)
 
-  // Text handlers
-  function updateText(newText) {
-    setHistory(prev => [...prev.slice(-49), text])
-    setText(newText)
+  // ── Snapshot: save current full state before any action ──────
+  function saveSnapshot() {
+    setHistory(prev => [...prev.slice(-49), { segments, font, size, bold, italic, underline, color }])
   }
 
+  // ── Char handler ─────────────────────────────────────────────
   function handleChar(char) {
-    updateText(text + char)
+    saveSnapshot()
+    const currentStyle = makeStyle(font, size, bold, italic, underline, color)
+
+    setSegments(prev => {
+      // If the last segment has the same style, just append to it
+      if (prev.length > 0) {
+        const last = prev[prev.length - 1]
+        if (
+          last.font === currentStyle.font &&
+          last.size === currentStyle.size &&
+          last.bold === currentStyle.bold &&
+          last.italic === currentStyle.italic &&
+          last.underline === currentStyle.underline &&
+          last.color === currentStyle.color
+        ) {
+          return [...prev.slice(0, -1), { ...last, text: last.text + char }]
+        }
+      }
+      // Otherwise start a new segment
+      return [...prev, { ...currentStyle, text: char }]
+    })
+
     if (shifted && language === 'en') setShifted(false)
   }
 
-  function handleDeleteChar() { updateText(text.slice(0, -1)) }
-
-  function handleDeleteWord() {
-    const trimmed = text.trimEnd()
-    const lastSpace = trimmed.lastIndexOf(' ')
-    updateText(lastSpace === -1 ? '' : trimmed.slice(0, lastSpace + 1))
+  // ── Delete char ───────────────────────────────────────────────
+  function handleDeleteChar() {
+    saveSnapshot()
+    setSegments(prev => {
+      if (prev.length === 0) return prev
+      const last = prev[prev.length - 1]
+      if (last.text.length === 1) return prev.slice(0, -1)           // remove the whole segment
+      return [...prev.slice(0, -1), { ...last, text: last.text.slice(0, -1) }]
+    })
   }
 
-  function handleClear() { updateText('') }
+  // ── Delete word ───────────────────────────────────────────────
+  function handleDeleteWord() {
+    saveSnapshot()
+    const plain = segmentsToPlainText(segments)
+    const trimmed = plain.trimEnd()
+    const lastSpace = trimmed.lastIndexOf(' ')
+    const keep = lastSpace === -1 ? '' : trimmed.slice(0, lastSpace + 1)
+    // Rebuild segments keeping only chars up to `keep.length`
+    setSegments(prev => rebuildToLength(prev, keep.length))
+  }
 
+  // ── Clear ─────────────────────────────────────────────────────
+  function handleClear() {
+    saveSnapshot()
+    setSegments([])
+  }
+
+  // ── Undo ──────────────────────────────────────────────────────
   function handleUndo() {
     if (history.length === 0) return
-    setText(history[history.length - 1])
-    setHistory(prev => prev.slice(0, -1))
+    const prev = history[history.length - 1]
+    setSegments(prev.segments)
+    setFont(prev.font)
+    setSize(prev.size)
+    setBold(prev.bold)
+    setItalic(prev.italic)
+    setUnderline(prev.underline)
+    setColor(prev.color)
+    setHistory(h => h.slice(0, -1))
   }
 
-  // // File handler (Part B)
-  // // Called by FileBar when the user opens a saved file
-  // function handleOpenFile(loadedText, filename) {
-  //   setText(loadedText)
-  //   setHistory([])
-  //   setCurrentFile(filename)
-  // }
+  // ── Style handlers ────────────────────────────────────────────
+  function handleStyleChange(setter, value, field) {
+    saveSnapshot()
+    setter(value)
 
-  // Derive preview style
-  const activeFont  = FONTS.find(f => f.id === font)
-  const activeSize  = SIZES.find(s => s.id === size)
-  const activeColor = COLORS.find(c => c.id === color)
-
-  const textStyle = {
-    fontFamily:     activeFont?.css  ?? 'sans-serif',
-    fontSize:       activeSize?.px   ?? 16,
-    fontWeight:     bold      ? 700  : 400,
-    fontStyle:      italic    ? 'italic'    : 'normal',
-    textDecoration: underline ? 'underline' : 'none',
-    color:          activeColor?.hex ?? '#1a1a1a',
+    // If scope is "all", re-style every segment
+    if (styleScope === 'all') {
+      setSegments(prev => prev.map(seg => ({ ...seg, [field]: value })))
+    }
+    // If scope is 'from-now', new chars will naturally use the new style
   }
+
+  // ── File handler ──────────────────────────────────────────────
+  function handleOpenFile(loadedText, filename) {
+    // Load plain text as a single unstyled segment
+    setSegments([{ text: loadedText, font: 'sans', size: 'md', bold: false, italic: false, underline: false, color: 'black' }])
+    setHistory([])
+    setCurrentFile(filename)
+  }
+
+  // Plain text for saving
+  const plainText = segmentsToPlainText(segments)
+
+  const hrStyle = { border: 'none', borderTop: '1px solid #e0ddd6', margin: 0 }
 
   return (
-    <div style={{ maxWidth: 660, margin: '0 auto', padding: '1rem', fontFamily: 'sans-serif' }}>
+    <div style={{
+      height: '100vh', display: 'flex', flexDirection: 'column',
+      padding: '8px 12px', fontFamily: 'sans-serif', boxSizing: 'border-box', gap: 6,
+    }}>
 
-      {/* File bar — sits at the top
-      <FileBar
-        currentFile={currentFile}
-        text={text}
-        onOpen={handleOpenFile}
-        onFileChange={setCurrentFile}
-      /> */}
+      <FileBar currentFile={currentFile} text={plainText} onOpen={handleOpenFile} onFileChange={setCurrentFile} />
 
-      {/* Preview */}
-      <TextPreview text={text} textStyle={textStyle} />
+      <TextPreview segments={segments} />
 
-      {/* Keyboard panel */}
-      <div style={{ background: '#f8f7f4', border: '1.5px solid #e0ddd6', borderRadius: 14, padding: '12px 14px' }}>
+      <div style={{
+        flex: 1, background: '#f8f7f4', border: '1.5px solid #e0ddd6',
+        borderRadius: 14, padding: '10px 12px', display: 'flex',
+        flexDirection: 'column', gap: 6, overflow: 'hidden', minHeight: 0,
+      }}>
 
-        <LanguageRow language={language} onLanguageChange={setLanguage} />
-        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
+        <div style={{ display: 'flex', gap: 10, flex: 1, minHeight: 0 }}>
 
-        <StyleRow
-          font={font}           onFontChange={setFont}
-          size={size}           onSizeChange={setSize}
-          bold={bold}           onBoldToggle={() => setBold(!bold)}
-          italic={italic}       onItalicToggle={() => setItalic(!italic)}
-          underline={underline} onUnderlineToggle={() => setUnderline(!underline)}
-        />
-        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
+          {/* Left column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 300, flexShrink: 0 }}>
+            <LanguageRow language={language} onLanguageChange={setLanguage} />
+            <hr style={hrStyle} />
+            <StyleRow
+              font={font}           onFontChange={v  => handleStyleChange(setFont,      v, 'font')}
+              size={size}           onSizeChange={v  => handleStyleChange(setSize,      v, 'size')}
+              bold={bold}           onBoldToggle={()  => handleStyleChange(setBold,      !bold,      'bold')}
+              italic={italic}       onItalicToggle={()=> handleStyleChange(setItalic,    !italic,    'italic')}
+              underline={underline} onUnderlineToggle={()=> handleStyleChange(setUnderline, !underline, 'underline')}
+              styleScope={styleScope} onStyleScopeChange={setStyleScope}
+            />
+            <hr style={hrStyle} />
+            <ColorRow color={color} onColorChange={v => handleStyleChange(setColor, v, 'color')} />
+          </div>
 
-        <ColorRow color={color} onColorChange={setColor} />
-        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
+          {/* Right column */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <CharacterGrid
+              language={language} shifted={shifted}
+              onShiftToggle={() => setShifted(!shifted)}
+              onChar={handleChar}
+            />
+          </div>
 
-        <CharacterGrid
-          language={language} shifted={shifted}
-          onShiftToggle={() => setShifted(!shifted)}
-          onChar={handleChar}
-        />
-        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
+        </div>
+
+        <hr style={hrStyle} />
 
         <ActionRow
           onDeleteChar={handleDeleteChar}
@@ -126,4 +197,22 @@ export default function App() {
       </div>
     </div>
   )
+}
+
+// Trim segments array so total char count equals targetLength
+function rebuildToLength(segments, targetLength) {
+  const result = []
+  let count = 0
+  for (const seg of segments) {
+    if (count >= targetLength) break
+    const canTake = targetLength - count
+    if (seg.text.length <= canTake) {
+      result.push(seg)
+      count += seg.text.length
+    } else {
+      result.push({ ...seg, text: seg.text.slice(0, canTake) })
+      count = targetLength
+    }
+  }
+  return result
 }

@@ -3,11 +3,9 @@
 //  A simple custom hook that wraps localStorage.
 //  Returns functions for save, load, and listing all saved files.
 //
-//  All files are stored under the key prefix "vte_file_"
-//  so they don't clash with anything else in localStorage.
 // ============================================================
 
-const PREFIX = 'vte_file_'
+const PREFIX = 'file_'
 
 export function useLocalStorage() {
 

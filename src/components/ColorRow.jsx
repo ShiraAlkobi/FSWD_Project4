@@ -1,5 +1,5 @@
 import React from 'react'
-import { COLORS } from '../data/KeyboardData.js'
+import { COLORS } from '../data/keyboardData.js'
 
 // Props:
 //   color         – active color id
@@ -24,7 +24,7 @@ export default function ColorRow({ color, onColorChange }) {
               borderRadius: '50%',
               background:   c.hex,
               cursor:       'pointer',
-              border:       color === c.id ? '3px solid #7F77DD'    : '2px solid transparent',
+              border:  color === c.id ? '3px solid #7F77DD'    : '2px solid transparent',
               outline:      color === c.id ? `2px solid ${c.hex}55` : 'none',
             }}
           />

@@ -144,5 +144,5 @@ export default function FileBar({ currentFile, text, onOpen, onFileChange }) {
 }
 
 const btnBase   = { height: 32, padding: '0 12px', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontSize: 13 }
-const greenStyle = { background: '#EAF3DE', borderColor: '#97C459', color: '#3B6D11' }
-const blueStyle  = { background: '#E6F1FB', borderColor: '#85B7EB', color: '#185FA5' }
+const greenStyle = { background: '#EAF3DE', border: '#97C459', color: '#3B6D11' }
+const blueStyle  = { background: '#E6F1FB', border: '#85B7EB', color: '#185FA5' }
