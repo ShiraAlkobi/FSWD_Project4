@@ -1,320 +1,129 @@
-import React, { useReducer, useCallback, useMemo, useState } from "react";
+import React, { useState } from 'react'
 
-import { keyboardReducer, INITIAL_KB_STATE } from "./state/keyboardReducer.js";
-import { textReducer, INITIAL_TEXT_STATE } from "./state/textReducer.js";
-
-import { TextPreview } from "./components/TextPreview.jsx";
-import { LanguageRow } from "./components/LanguageRow.jsx";
-import { StyleRow } from "./components/StyleRow.jsx";
-import { ColorRow } from "./components/ColorRow.jsx";
-import { CharacterGrid } from "./components/CharacterGrid.jsx";
-import { ActionRow } from "./components/ActionRow.jsx";
-import { Separator } from "./components/Key.jsx";
+import { FONTS, SIZES, COLORS } from './data/KeyboardData.js'
+import TextPreview   from './components/TextPreview.jsx'
+import FileBar       from './components/FileBar.jsx'
+import LanguageRow   from './components/LanguageRow.jsx'
+import StyleRow      from './components/StyleRow.jsx'
+import ColorRow      from './components/ColorRow.jsx'
+import CharacterGrid from './components/CharacterGrid.jsx'
+import ActionRow     from './components/ActionRow.jsx'
 
 export default function App() {
-  const [kbState, kbDispatch] = useReducer(keyboardReducer, INITIAL_KB_STATE);
-  const [txtState, txtDispatch] = useReducer(textReducer, INITIAL_TEXT_STATE);
 
-  const [showFind, setShowFind] = useState(false);
-  const [showReplace, setShowReplace] = useState(false);
+  // Style state
+  const [language,  setLanguage]  = useState('en')
+  const [shifted,   setShifted]   = useState(false)
+  const [font,      setFont]      = useState('sans')
+  const [size,      setSize]      = useState('md')
+  const [bold,      setBold]      = useState(false)
+  const [italic,    setItalic]    = useState(false)
+  const [underline, setUnderline] = useState(false)
+  const [color,     setColor]     = useState('black')
 
-  const [findValue, setFindValue] = useState("");
-  const [replaceValue, setReplaceValue] = useState("");
+  // Text state
+  const [text,    setText]    = useState('')
+  const [history, setHistory] = useState([])
 
-  const [foundIndexes, setFoundIndexes] = useState([]);
-  const [currentMatch, setCurrentMatch] = useState(0);
+  // // File state (Part B)
+  // const [currentFile, setCurrentFile] = useState(null)
 
-  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
+  // Text handlers
+  function updateText(newText) {
+    setHistory(prev => [...prev.slice(-49), text])
+    setText(newText)
+  }
 
-  const currentTypingStyle = useMemo(
-    () => ({
-      font: kbState.font,
-      size: kbState.size,
-      bold: kbState.bold,
-      italic: kbState.italic,
-      underline: kbState.underline,
-      color: kbState.color,
-    }),
-    [
-      kbState.font,
-      kbState.size,
-      kbState.bold,
-      kbState.italic,
-      kbState.underline,
-      kbState.color,
-    ]
-  );
+  function handleChar(char) {
+    updateText(text + char)
+    if (shifted && language === 'en') setShifted(false)
+  }
 
-  const plainText = useMemo(
-    () => txtState.content.map((item) => item.char).join(""),
-    [txtState.content]
-  );
+  function handleDeleteChar() { updateText(text.slice(0, -1)) }
 
-  const handleChar = useCallback(
-    (char) => {
-      txtDispatch({
-        type: "APPEND",
-        char,
-        style: currentTypingStyle,
-      });
+  function handleDeleteWord() {
+    const trimmed = text.trimEnd()
+    const lastSpace = trimmed.lastIndexOf(' ')
+    updateText(lastSpace === -1 ? '' : trimmed.slice(0, lastSpace + 1))
+  }
 
-      if (kbState.shifted && kbState.language === "en") {
-        kbDispatch({ type: "TOGGLE_SHIFT" });
-      }
-    },
-    [currentTypingStyle, kbState.shifted, kbState.language]
-  );
+  function handleClear() { updateText('') }
 
-  const runFind = useCallback(() => {
-    if (!findValue) {
-      setFoundIndexes([]);
-      setCurrentMatch(0);
-      return;
-    }
+  function handleUndo() {
+    if (history.length === 0) return
+    setText(history[history.length - 1])
+    setHistory(prev => prev.slice(0, -1))
+  }
 
-    const indexes = [];
-    let start = 0;
+  // // File handler (Part B)
+  // // Called by FileBar when the user opens a saved file
+  // function handleOpenFile(loadedText, filename) {
+  //   setText(loadedText)
+  //   setHistory([])
+  //   setCurrentFile(filename)
+  // }
 
-    while (true) {
-      const idx = plainText.indexOf(findValue, start);
-      if (idx === -1) break;
-      indexes.push(idx);
-      start = idx + 1;
-    }
+  // Derive preview style
+  const activeFont  = FONTS.find(f => f.id === font)
+  const activeSize  = SIZES.find(s => s.id === size)
+  const activeColor = COLORS.find(c => c.id === color)
 
-    setFoundIndexes(indexes);
-    setCurrentMatch(0);
-  }, [findValue, plainText]);
-
-  const nextMatch = useCallback(() => {
-    if (foundIndexes.length === 0) return;
-    setCurrentMatch((prev) => (prev + 1) % foundIndexes.length);
-  }, [foundIndexes]);
-
-  const prevMatch = useCallback(() => {
-    if (foundIndexes.length === 0) return;
-    setCurrentMatch((prev) => (prev - 1 + foundIndexes.length) % foundIndexes.length);
-  }, [foundIndexes]);
-
-  const replaceCurrent = useCallback(() => {
-    if (foundIndexes.length === 0 || !findValue) return;
-
-    const index = foundIndexes[currentMatch];
-
-    txtDispatch({
-      type: "REPLACE_ONE",
-      index,
-      findText: findValue,
-      replaceText: replaceValue,
-      style: currentTypingStyle,
-    });
-
-    setTimeout(() => {
-      const updatedText = plainText.replace(findValue, replaceValue);
-      const indexes = [];
-      let start = 0;
-
-      while (true) {
-        const idx = updatedText.indexOf(findValue, start);
-        if (idx === -1) break;
-        indexes.push(idx);
-        start = idx + 1;
-      }
-
-      setFoundIndexes(indexes);
-      setCurrentMatch(0);
-    }, 0);
-  }, [
-    foundIndexes,
-    currentMatch,
-    findValue,
-    replaceValue,
-    currentTypingStyle,
-    plainText,
-  ]);
-
-  const replaceAll = useCallback(() => {
-    if (!findValue) return;
-
-    txtDispatch({
-      type: "REPLACE_ALL",
-      findText: findValue,
-      replaceText: replaceValue,
-      style: currentTypingStyle,
-    });
-
-    setFoundIndexes([]);
-    setCurrentMatch(0);
-  }, [findValue, replaceValue, currentTypingStyle]);
+  const textStyle = {
+    fontFamily:     activeFont?.css  ?? 'sans-serif',
+    fontSize:       activeSize?.px   ?? 16,
+    fontWeight:     bold      ? 700  : 400,
+    fontStyle:      italic    ? 'italic'    : 'normal',
+    textDecoration: underline ? 'underline' : 'none',
+    color:          activeColor?.hex ?? '#1a1a1a',
+  }
 
   return (
-    <div
-      style={{
-        fontFamily: "'Segoe UI', sans-serif",
-        maxWidth: 660,
-        margin: "0 auto",
-        padding: "1rem 0",
-      }}
-    >
-      <TextPreview content={txtState.content} />
+    <div style={{ maxWidth: 660, margin: '0 auto', padding: '1rem', fontFamily: 'sans-serif' }}>
 
-      {(showFind || showReplace) && (
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1.5px solid #e0ddd6",
-            borderRadius: 12,
-            padding: 12,
-            marginBottom: 10,
-          }}
-        >
-          <div style={{ fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
-            {showReplace ? "Replace" : "Find"}
-          </div>
+      {/* File bar — sits at the top
+      <FileBar
+        currentFile={currentFile}
+        text={text}
+        onOpen={handleOpenFile}
+        onFileChange={setCurrentFile}
+      /> */}
 
-          <input
-            type="text"
-            value={findValue}
-            onChange={(e) => setFindValue(e.target.value)}
-            placeholder="Find text"
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: 8,
-              border: "1px solid #ccc",
-              marginBottom: 8,
-              boxSizing: "border-box",
-            }}
-          />
+      {/* Preview */}
+      <TextPreview text={text} textStyle={textStyle} />
 
-          {showReplace && (
-            <input
-              type="text"
-              value={replaceValue}
-              onChange={(e) => setReplaceValue(e.target.value)}
-              placeholder="Replace with"
-              style={{
-                width: "100%",
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #ccc",
-                marginBottom: 8,
-                boxSizing: "border-box",
-              }}
-            />
-          )}
+      {/* Keyboard panel */}
+      <div style={{ background: '#f8f7f4', border: '1.5px solid #e0ddd6', borderRadius: 14, padding: '12px 14px' }}>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={runFind}>Search</button>
-            <button onClick={prevMatch}>Prev</button>
-            <button onClick={nextMatch}>Next</button>
-
-            {showReplace && (
-              <>
-                <button onClick={replaceCurrent}>Replace current</button>
-                <button onClick={replaceAll}>Replace all</button>
-              </>
-            )}
-
-            <button
-              onClick={() => {
-                setShowFind(false);
-                setShowReplace(false);
-              }}
-            >
-              Close
-            </button>
-          </div>
-
-          <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
-            {findValue
-              ? `Found ${foundIndexes.length} match(es)${
-                  foundIndexes.length ? `, current: ${currentMatch + 1}` : ""
-                }`
-              : "Enter text to search"}
-          </div>
-        </div>
-      )}
-
-      <div
-        style={{
-          background: "#f8f7f4",
-          border: "1.5px solid #e0ddd6",
-          borderRadius: 14,
-          padding: "12px 14px",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+        <LanguageRow language={language} onLanguageChange={setLanguage} />
+        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
 
         <StyleRow
-          font={kbState.font}
-          size={kbState.size}
-          bold={kbState.bold}
-          italic={kbState.italic}
-          underline={kbState.underline}
-          dispatch={kbDispatch}
-          onToggleLanguagePicker={() => {
-            setShowLanguagePicker((prev) => !prev);
-            setShowColorPicker(false);
-        }}
-        onToggleColorPicker={() => {
-          setShowColorPicker((prev) => !prev);
-          setShowLanguagePicker(false);
-        }}
-/>
+          font={font}           onFontChange={setFont}
+          size={size}           onSizeChange={setSize}
+          bold={bold}           onBoldToggle={() => setBold(!bold)}
+          italic={italic}       onItalicToggle={() => setItalic(!italic)}
+          underline={underline} onUnderlineToggle={() => setUnderline(!underline)}
+        />
+        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
 
-{showLanguagePicker && (
-  <>
-    <Separator />
-    <LanguageRow language={kbState.language} dispatch={kbDispatch} />
-  </>
-)}
-
-{showColorPicker && (
-  <>
-    <Separator />
-    <ColorRow
-      color={kbState.color}
-      dispatch={kbDispatch}
-      onApplyAll={() => {
-        txtDispatch({
-          type: "APPLY_STYLE_TO_ALL",
-          style: currentTypingStyle,
-        });
-      }}
-    />
-  </>
-)}
-       
-
-        <Separator />
+        <ColorRow color={color} onColorChange={setColor} />
+        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
 
         <CharacterGrid
-          language={kbState.language}
-          shifted={kbState.shifted}
-          dispatch={kbDispatch}
+          language={language} shifted={shifted}
+          onShiftToggle={() => setShifted(!shifted)}
           onChar={handleChar}
         />
-
-        <Separator />
+        <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '8px 0' }} />
 
         <ActionRow
-          onDeleteChar={() => txtDispatch({ type: "DELETE_CHAR" })}
-          onDeleteWord={() => txtDispatch({ type: "DELETE_WORD" })}
-          onClearAll={() => txtDispatch({ type: "CLEAR" })}
-          onUndo={() => txtDispatch({ type: "UNDO" })}
-          onFind={() => {
-            setShowFind(true);
-            setShowReplace(false);
-          }}
-          onReplace={() => {
-            setShowReplace(true);
-            setShowFind(false);
-          }}
+          onDeleteChar={handleDeleteChar}
+          onDeleteWord={handleDeleteWord}
+          onClearAll={handleClear}
+          onUndo={handleUndo}
         />
+
       </div>
     </div>
-  );
+  )
 }

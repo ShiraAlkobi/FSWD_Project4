@@ -1,44 +1,34 @@
-// ============================================================
-//  ActionRow.jsx
-//  Delete operations + Undo + Find + Replace.
-//
-//  This row fires NAMED callbacks (not dispatch) because each
-//  button does something fundamentally different:
-//    - delete/undo  → modify the text buffer (textReducer)
-//    - find/replace → open a UI dialog (local UI state)
-//  Using named callbacks keeps ActionRow decoupled from both.
-//
-//  Props (all callbacks):
-//    onDeleteChar  — remove last character
-//    onDeleteWord  — remove last word
-//    onClearAll    — wipe entire text
-//    onUndo        — restore previous text state
-//    onFind        — open find dialog
-//    onReplace     — open replace dialog
-// ============================================================
+import React from 'react'
 
-import { Key, Divider, RowLabel } from "./Key.jsx";
+// Props (all are simple callback functions):
+//   onDeleteChar – remove the last character
+//   onDeleteWord – remove the last word
+//   onClearAll   – wipe all text
+//   onUndo       – restore previous text
 
-export function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUndo, onFind, onReplace }) {
+export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUndo }) {
   return (
     <div>
-      <RowLabel>Actions</RowLabel>
+      <div style={labelStyle}>Actions</div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
 
-        {/* Destructive actions — red */}
-        <Key label="⌫ Char"  variant="danger" onClick={onDeleteChar} />
-        <Key label="⌫ Word"  variant="danger" onClick={onDeleteWord} />
-        <Key label="✕ Clear" variant="danger" onClick={onClearAll}   />
+        {/* Destructive actions — red style */}
+        <button onClick={onDeleteChar} style={{ ...btnBase, ...dangerStyle }}>⌫ Char</button>
+        <button onClick={onDeleteWord} style={{ ...btnBase, ...dangerStyle }}>⌫ Word</button>
+        <button onClick={onClearAll}   style={{ ...btnBase, ...dangerStyle }}>✕ Clear</button>
 
-        <Divider />
+        <span style={{ display: 'inline-block', width: 1, height: 22, background: '#e0ddd6', margin: '0 2px', alignSelf: 'center' }} />
 
-        {/* History + search — green */}
-        <Key label="↩ Undo"    variant="action" wide onClick={onUndo}    />
-        <Key label="🔍 Find"   variant="action"      onClick={onFind}    />
-        <Key label="⇄ Replace" variant="action"      onClick={onReplace} />
+        {/* Undo — green style */}
+        <button onClick={onUndo} style={{ ...btnBase, ...actionStyle }}>↩ Undo</button>
 
       </div>
     </div>
-  );
+  )
 }
+
+const labelStyle  = { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }
+const btnBase     = { height: 34, padding: '0 12px', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontSize: 13 }
+const dangerStyle = { background: '#FCEBEB', borderColor: '#F09595', color: '#A32D2D' }
+const actionStyle = { background: '#EAF3DE', borderColor: '#97C459', color: '#3B6D11' }

@@ -1,37 +1,36 @@
-// ============================================================
-//  LanguageRow.jsx
-//  Shows the language toggle buttons (EN / עב / 😀 / 123).
-//
-//  Props it READS:  language (string)
-//  Props it FIRES:  dispatch({ type: "SET_LANGUAGE", id })
-//
-//  It knows nothing about fonts, colors, or text content.
-// ============================================================
+import React from 'react'
+import { LANGUAGES } from '../data/KeyboardData.js'
 
-import { Key, Divider, RowLabel } from "./Key.jsx";
-import { LANGUAGES } from "../keyboardData.js";
+// Props:
+//   language         – the currently active language id (string)
+//   onLanguageChange – called with the new language id when user clicks
 
-export function LanguageRow({ language, dispatch }) {
+export default function LanguageRow({ language, onLanguageChange }) {
   return (
-    <div
-      style={{
-        background: "#fff",
-        border: "1px solid #e0ddd6",
-        borderRadius: 10,
-        padding: 8,
-      }}
-    >
-      <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-        {LANGUAGES.map((lang) => (
-          <Key
+    <div>
+      <div style={labelStyle}>Language</div>
+
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {/* List rendering: one button per language */}
+        {LANGUAGES.map(lang => (
+          <button
             key={lang.id}
-            label={lang.label}
-            variant="lang"
-            active={language === lang.id}
-            onClick={() => dispatch({ type: "SET_LANGUAGE", id: lang.id })}
-          />
+            onClick={() => onLanguageChange(lang.id)}
+            style={{
+              ...btnBase,
+              background:  language === lang.id ? '#E6F1FB' : '#fff',
+              borderColor: language === lang.id ? '#85B7EB' : '#e0ddd6',
+              color:       language === lang.id ? '#185FA5' : '#1a1a1a',
+              fontWeight:  language === lang.id ? 600 : 400,
+            }}
+          >
+            {lang.label}
+          </button>
         ))}
       </div>
     </div>
-  );
+  )
 }
+
+const labelStyle = { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }
+const btnBase    = { height: 34, minWidth: 44, padding: '0 10px', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontSize: 13 }
