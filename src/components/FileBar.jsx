@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useLocalStorage } from '../data/useLocalStorage.js'
 
-// Props:
-//   currentFile, segments, onOpen, onNew, onFileChange  — same as before
-//   currentUser    – logged-in username, or null
-//   onSaveBlocked  – called when user tries to save without being logged in
-
 export default function FileBar({ currentFile, segments, onOpen, onNew, onFileChange, currentUser, onSaveBlocked }) {
   const { saveFile, loadFile, listFiles } = useLocalStorage()
 
@@ -23,16 +18,12 @@ export default function FileBar({ currentFile, segments, onOpen, onNew, onFileCh
     setTimeout(() => setMessage(''), 2500)
   }
 
-  // Guard — if not logged in, block save and open auth modal
   function requireUser() {
     if (!currentUser) { onSaveBlocked(); return false }
     return true
   }
 
-  function handleNew() {
-    onNew()
-    showMsg('New file — press Save when ready')
-  }
+  function handleNew() { onNew(); showMsg('Cleared all content.') }
 
   function handleSave() {
     if (!requireUser()) return
@@ -41,8 +32,8 @@ export default function FileBar({ currentFile, segments, onOpen, onNew, onFileCh
       setSavedFiles(listFiles(currentUser))
       showMsg(`Saved "${currentFile}"`)
     } else {
-      const name = window.prompt('Save — enter a file name:', 'untitled')
-      if (!name || name.trim() === '') return
+      const name = window.prompt('File name:', 'untitled')
+      if (!name?.trim()) return
       saveFile(name.trim(), segments, currentUser)
       onFileChange(name.trim())
       setSavedFiles(listFiles(currentUser))
@@ -52,8 +43,8 @@ export default function FileBar({ currentFile, segments, onOpen, onNew, onFileCh
 
   function handleSaveAs() {
     if (!requireUser()) return
-    const name = window.prompt('Save As — enter a file name:', currentFile || 'untitled')
-    if (!name || name.trim() === '') return
+    const name = window.prompt('Save as:', currentFile || 'untitled')
+    if (!name?.trim()) return
     saveFile(name.trim(), segments, currentUser)
     onFileChange(name.trim())
     setSavedFiles(listFiles(currentUser))
@@ -73,42 +64,37 @@ export default function FileBar({ currentFile, segments, onOpen, onNew, onFileCh
     <div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
 
-        <span style={{ fontSize: 13, color: '#555', minWidth: 110 }}>
-          {currentFile
-            ? <span>📄 <strong>{currentFile}</strong></span>
-            : <span style={{ color: '#aaa' }}>No file open</span>
-          }
-        </span>
-
-        <button onClick={handleNew}                      style={btn('gray')}>📝 New</button>
+        <button onClick={handleNew}                      style={btn('gray')}>Clear All</button>
         <button onClick={handleSave}                     style={btn('green')}>💾 Save</button>
-        <button onClick={handleSaveAs}                   style={btn('green')}>💾 Save As</button>
+        <button onClick={handleSaveAs}                   style={btn('green')}>Save As</button>
         <button onClick={() => setShowOpenList(v => !v)} style={btn('blue')}>
           📂 Open {showOpenList ? '▲' : '▼'}
         </button>
 
-        {/* "Save requires login" hint when not logged in */}
         {!currentUser && (
-          <span style={{ fontSize: 11, color: '#888', fontStyle: 'italic' }}>
-            Sign in to save files
-          </span>
+          <span style={{ fontSize: 11, color: '#7a9a8a', fontStyle: 'italic' }}>Sign in to save</span>
         )}
 
         {message && (
-          <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 6, background: isError ? '#FCEBEB' : '#EAF3DE', color: isError ? '#A32D2D' : '#3B6D11' }}>
+          <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: isError ? '#fef0ee' : '#e8f5ee', color: isError ? '#a03020' : '#0a6040' }}>
             {message}
           </span>
         )}
       </div>
 
       {showOpenList && (
-        <div style={{ marginTop: 6, background: '#fff', borderWidth: '1.5px', borderStyle: 'solid', borderColor: '#e0ddd6', borderRadius: 10, padding: 8, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+        <div style={{ marginTop: 6, background: '#fff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#b8d8c8', borderRadius: 10, padding: 8, display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 200, overflowY: 'auto' }}>
           {!currentUser
-            ? <span style={{ fontSize: 13, color: '#aaa', padding: '4px 8px', fontStyle: 'italic' }}>Sign in to see your files.</span>
+            ? <span style={{ fontSize: 12, color: '#9ab8a8', padding: '4px 8px', fontStyle: 'italic' }}>Sign in to see your files.</span>
             : savedFiles.length === 0
-              ? <span style={{ fontSize: 13, color: '#aaa', padding: '4px 8px' }}>No saved files yet.</span>
+              ? <span style={{ fontSize: 12, color: '#9ab8a8', padding: '4px 8px' }}>No saved files yet.</span>
               : savedFiles.map(filename => (
-                  <div key={filename} onClick={() => handleOpenFile(filename)} style={{ padding: '5px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 13, background: currentFile === filename ? '#E6F1FB' : '#f8f8f8', borderWidth: '1px', borderStyle: 'solid', borderColor: currentFile === filename ? '#85B7EB' : '#e0ddd6', color: '#1a1a1a' }}>
+                  <div key={filename} onClick={() => handleOpenFile(filename)}
+                    style={{ padding: '6px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+                      background: currentFile === filename ? '#e0f5ef' : '#f4fbf7',
+                      borderWidth: '1px', borderStyle: 'solid',
+                      borderColor: currentFile === filename ? '#4db896' : '#c8e8d8',
+                      color: '#1a3a2a', fontWeight: currentFile === filename ? 600 : 400 }}>
                     📄 {filename}
                   </div>
                 ))
@@ -120,9 +106,9 @@ export default function FileBar({ currentFile, segments, onOpen, onNew, onFileCh
 }
 
 function btn(color) {
-  const base = { height: 30, padding: '0 10px', borderRadius: 7, borderWidth: '1.5px', borderStyle: 'solid', cursor: 'pointer', fontSize: 12 }
-  if (color === 'green') return { ...base, background: '#EAF3DE', borderColor: '#97C459', color: '#3B6D11' }
-  if (color === 'blue')  return { ...base, background: '#E6F1FB', borderColor: '#85B7EB', color: '#185FA5' }
-  if (color === 'gray')  return { ...base, background: '#f4f4f4', borderColor: '#d0d0d0', color: '#444'    }
+  const base = { height: 30, padding: '0 12px', borderRadius: 7, borderWidth: '1px', borderStyle: 'solid', cursor: 'pointer', fontSize: 12, fontWeight: 500 }
+  if (color === 'green') return { ...base, background: '#e0f5ef', borderColor: '#4db896', color: '#0a6040' }
+  if (color === 'blue')  return { ...base, background: '#e8f2fb', borderColor: '#7ab0d8', color: '#0a3a6a' }
+  if (color === 'gray')  return { ...base, background: '#f4f8f6', borderColor: '#b8ccc4', color: '#3a5a4a' }
   return base
 }

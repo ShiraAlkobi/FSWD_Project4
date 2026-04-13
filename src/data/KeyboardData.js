@@ -37,9 +37,11 @@ export const CHAR_LAYOUTS = {
 }
 
 export const FONTS = [
-  { id: 'sans',  label: 'Sans',  css: 'sans-serif'              },
-  { id: 'serif', label: 'Serif', css: 'Georgia, serif'          },
-  { id: 'mono',  label: 'Mono',  css: "'Courier New', monospace" },
+  { id: 'sans',      label: 'Sans',      css: 'sans-serif'                },
+  { id: 'serif',     label: 'Serif',     css: 'Georgia, serif'            },
+  { id: 'mono',      label: 'Mono',      css: "'Courier New', monospace"   },
+  { id: 'cursive',   label: 'Cursive',   css: "'Brush Script MT', cursive" },
+  { id: 'trebuchet', label: 'Trebuchet', css: "'Trebuchet MS', sans-serif" },
 ]
 
 export const SIZES = [
@@ -50,10 +52,27 @@ export const SIZES = [
 ]
 
 export const COLORS = [
-  { id: 'black',  hex: '#1a1a1a' },
-  { id: 'blue',   hex: '#185FA5' },
-  { id: 'green',  hex: '#3B6D11' },
-  { id: 'red',    hex: '#993C1D' },
-  { id: 'amber',  hex: '#BA7517' },
-  { id: 'purple', hex: '#533AB7' },
+  { id: 'black',      hex: '#1a1a1a' },
+  { id: 'dark-gray',  hex: '#4a4a4a' },
+  { id: 'gray',       hex: '#7a7a7a' },
+  { id: 'light-gray', hex: '#b0b0b0' },
+  { id: 'white',      hex: '#ffffff' },
+
+  { id: 'red',        hex: '#d32f2f' },
+  { id: 'pink',       hex: '#e91e63' },
+  { id: 'purple',     hex: '#7b1fa2' },
+  { id: 'blue',       hex: '#1976d2' },
+  { id: 'cyan',       hex: '#0097a7' },
+
+  { id: 'teal',       hex: '#00897b' },
+  { id: 'green',      hex: '#388e3c' },
+  { id: 'lime',       hex: '#7cb342' },
+  { id: 'yellow',     hex: '#fbc02d' },
+  { id: 'amber',      hex: '#f57f17' },
+
+  { id: 'orange',     hex: '#f57c00' },
+  { id: 'brown',      hex: '#5d4037' },
+  { id: 'indigo',     hex: '#3f51b5' },
+  { id: 'deep-purple',hex: '#512da8' },
+  { id: 'deep-orange',hex: '#e64a19' },
 ]

@@ -5,10 +5,11 @@ import { useLocalStorage } from './data/useLocalStorage.js'
 import { useAuth } from './data/useAuth.js'
 import FileBar       from './components/FileBar.jsx'
 import AuthModal     from './components/AuthModal.jsx'
-import LanguageRow   from './components/LanguageRow.jsx'
 import StyleRow      from './components/StyleRow.jsx'
 import ColorRow      from './components/ColorRow.jsx'
 import CharacterGrid from './components/CharacterGrid.jsx'
+import DocumentWindow from './components/DocumentWindow.jsx'
+import ActionRow     from './components/ActionRow.jsx'
 
 function makeStyle(font, size, bold, italic, underline, color) {
   return { font, size, bold, italic, underline, color }
@@ -161,10 +162,26 @@ export default function App() {
     saveSnapshot()
     setDocuments(prev => prev.map(doc => {
       if (doc.id !== activeDocId) return doc
-      const plain    = segmentsToPlainText(doc.segments)
-      const trimmed  = plain.trimEnd()
-      const lastSpace = trimmed.lastIndexOf(' ')
-      const keep     = lastSpace === -1 ? '' : trimmed.slice(0, lastSpace + 1)
+      const plain = segmentsToPlainText(doc.segments)
+      const trimmed = plain.trimEnd()
+
+      // Find the last newline to determine current line start
+      const lastNewlineIdx = trimmed.lastIndexOf('\n')
+      const currentLineStart = lastNewlineIdx + 1
+      const currentLine = trimmed.slice(currentLineStart)
+
+      // Find the last space in current line only
+      const lastSpaceInLine = currentLine.lastIndexOf(' ')
+
+      let keep
+      if (lastSpaceInLine === -1) {
+        // No space in current line, delete entire current line
+        keep = trimmed.slice(0, currentLineStart)
+      } else {
+        // Delete from last space to end of current line
+        keep = trimmed.slice(0, currentLineStart + lastSpaceInLine + 1)
+      }
+
       return { ...doc, segments: rebuildToLength(doc.segments, keep.length) }
     }))
   }
@@ -175,7 +192,7 @@ export default function App() {
     setDocuments(prev => prev.map(doc =>
       doc.id === activeDocId ? { ...doc, segments: [] } : doc
     ))
-  }
+  }``
 
   function handleUndo() {
     if (!activeDocId || history.length === 0) return
@@ -187,7 +204,48 @@ export default function App() {
     setItalic(prev.italic); setUnderline(prev.underline); setColor(prev.color)
   }
 
-  // ── Style handler ─────────────────────────────────────────────
+  // ── Search and Replace ────────────────────────────────────────
+  function handleSearch(searchTerm) {
+    if (!activeDocId || !searchTerm) return 0
+    const plain = segmentsToPlainText(segments)
+    let count = 0
+    let index = 0
+    while ((index = plain.indexOf(searchTerm, index)) !== -1) {
+      count++
+      index += searchTerm.length
+    }
+    return count
+  }
+
+  function handleReplace(searchTerm, replaceTerm) {
+    if (!activeDocId || !searchTerm) return
+    saveSnapshot()
+    const plain = segmentsToPlainText(segments)
+    const firstIndex = plain.indexOf(searchTerm)
+
+    if (firstIndex === -1) return // Not found
+
+    const before = plain.slice(0, firstIndex)
+    const after = plain.slice(firstIndex + searchTerm.length)
+    const newPlain = before + replaceTerm + after
+
+    const newSegments = rebuildToReplaced(segments, newPlain)
+    setDocuments(prev => prev.map(doc =>
+      doc.id === activeDocId ? { ...doc, segments: newSegments } : doc
+    ))
+  }
+
+  function handleReplaceAll(searchTerm, replaceTerm) {
+    if (!activeDocId || !searchTerm) return
+    saveSnapshot()
+    const plain = segmentsToPlainText(segments)
+    const newPlain = plain.replaceAll(searchTerm, replaceTerm)
+
+    const newSegments = rebuildToReplaced(segments, newPlain)
+    setDocuments(prev => prev.map(doc =>
+      doc.id === activeDocId ? { ...doc, segments: newSegments } : doc
+    ))
+  }
   function handleStyleChange(setter, value, field) {
     if (!activeDocId) return
     saveSnapshot()
@@ -220,95 +278,67 @@ export default function App() {
     ))
   }
 
-  const hrStyle = { border: 'none', borderTop: '1px solid #e0ddd6', margin: 0 }
+  const hr = { border: 'none', borderTop: '1px solid #d0e8d8', margin: 0 }
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', padding: '8px 12px', fontFamily: 'sans-serif', boxSizing: 'border-box', gap: 6 }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', padding: '8px 12px', fontFamily: "'Segoe UI', system-ui, sans-serif", boxSizing: 'border-box', gap: 6, background: '#f0f7f2' }}>
 
-      {/* Auth modal overlay */}
-      {showAuthModal && (
-        <AuthModal
-          onSuccess={handleAuthSuccess}
-          onClose={() => setShowAuthModal(false)}
-        />
-      )}
+      {showAuthModal && <AuthModal onSuccess={handleAuthSuccess} onClose={() => setShowAuthModal(false)} />}
 
-      {/* Top bar: FileBar + User area */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* ── Top bar ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 12, padding: '6px 12px', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0' }}>
         <div style={{ flex: 1 }}>
           <FileBar
             currentFile={activeDoc?.filename?.startsWith('Untitled') ? null : activeDoc?.filename || null}
-            segments={segments}
-            onOpen={handleOpenFile}
-            onNew={handleNewFile}
+            segments={segments} onOpen={handleOpenFile} onNew={handleNewFile}
             onFileChange={handleUpdateDocumentFilename}
-            currentUser={currentUser}
-            onSaveBlocked={() => setShowAuthModal(true)}
+            currentUser={currentUser} onSaveBlocked={() => setShowAuthModal(true)}
           />
         </div>
 
-        {/* User area — top right */}
-        {currentUser
-          ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              {/* Profile icon + username */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: '#E6F1FB', borderRadius: 20, padding: '4px 12px 4px 6px',
-                borderWidth: '1.5px', borderStyle: 'solid', borderColor: '#85B7EB',
-              }}>
-                <div style={{
-                  width: 26, height: 26, borderRadius: '50%',
-                  background: '#185FA5', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700,
-                }}>
-                  {currentUser.username[0].toUpperCase()}
-                </div>
-                <span style={{ fontSize: 13, color: '#185FA5', fontWeight: 500 }}>{currentUser.username}</span>
+        {/* User pill */}
+        {currentUser ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#e0f5ef', borderRadius: 20, padding: '4px 12px 4px 5px', borderWidth: '1px', borderStyle: 'solid', borderColor: '#4db896' }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'linear-gradient(135deg,#4db896,#2a7abf)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                {(currentUser.username || currentUser)[0]?.toUpperCase()}
               </div>
-              <button onClick={handleLogout} style={logoutBtn}>Sign Out</button>
+              <span style={{ fontSize: 13, color: '#0a6040', fontWeight: 600 }}>{currentUser.username || currentUser}</span>
             </div>
-          )
-          : (
-            <button onClick={() => setShowAuthModal(true)} style={signInBtn}>
-              👤 Sign In
-            </button>
-          )
-        }
+            <button onClick={handleLogout} style={logoutBtn}>Sign Out</button>
+          </div>
+        ) : (
+          <button onClick={() => setShowAuthModal(true)} style={signInBtn}>👤 Sign In</button>
+        )}
       </div>
 
-      {/* Document display area */}
+      {/* ── Document area ── */}
       {documents.length === 0 ? (
-        <div style={{ flex: 1, background: '#f8f7f4', border: '1.5px solid #e0ddd6', borderRadius: 14, padding: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
-          <div style={{ textAlign: 'center', color: '#bbb', fontStyle: 'italic', fontSize: 14 }}>
-            Click "New Text" below to start editing
+        <div style={{ flex: 1, background: '#fff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+          <div style={{ textAlign: 'center', color: '#8ab8a0', fontSize: 14 }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
+            Click <strong>New Text</strong> below to start editing
           </div>
         </div>
       ) : (
         <div style={{
-          flex: 1, background: '#f8f7f4', border: '1.5px solid #e0ddd6', borderRadius: 14, padding: 12,
+          flex: 1, background: '#e8f5ee', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0', borderRadius: 14, padding: 10,
           display: 'grid',
           gridTemplateColumns: documents.length <= 2 ? `repeat(${documents.length}, 1fr)` : 'repeat(3, 1fr)',
-          gap: 10, minHeight: 0, overflow: 'auto'
+          gap: 10, minHeight: 0, overflow: 'auto',
         }}>
           {documents.map(doc => (
-            <DocumentWindow
-              key={doc.id} doc={doc}
-              isActive={doc.id === activeDocId}
-              onSelect={() => setActiveDocId(doc.id)}
-              onClose={() => handleCloseDoc(doc.id)}
-            />
+            <DocumentWindow key={doc.id} doc={doc} isActive={doc.id === activeDocId}
+              onSelect={() => setActiveDocId(doc.id)} onClose={() => handleCloseDoc(doc.id)} size={size} />
           ))}
         </div>
       )}
 
-      {/* Bottom panel */}
+      {/* ── Bottom panel: 3 columns ── */}
       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
 
-        {/* Style controls */}
-        <div style={{ background: '#fff', border: '1.5px solid #e0ddd6', borderRadius: 10, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, width: 180, flexShrink: 0, overflow: 'auto', maxHeight: 200 }}>
-          <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Styles</div>
+        {/* Style + Color */}
+        <div style={{ background: '#fff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, width: 320, flexShrink: 0, overflow: 'auto', maxHeight: 220 }}>
           <StyleRow
             font={font}           onFontChange={v  => handleStyleChange(setFont,      v, 'font')}
             size={size}           onSizeChange={v  => handleStyleChange(setSize,      v, 'size')}
@@ -317,28 +347,35 @@ export default function App() {
             underline={underline} onUnderlineToggle={()=> handleStyleChange(setUnderline, !underline, 'underline')}
             styleScope={styleScope} onStyleScopeChange={setStyleScope}
           />
-          <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '4px 0' }} />
+          <div style={hr} />
           <ColorRow color={color} onColorChange={v => handleStyleChange(setColor, v, 'color')} />
         </div>
 
         {/* Keyboard */}
-        <div style={{ flex: 1, minWidth: 0, background: '#fff', border: '1.5px solid #e0ddd6', borderRadius: 10, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Keyboard</div>
-          <LanguageRow language={language} onLanguageChange={setLanguage} />
-          <hr style={hrStyle} />
-          <CharacterGrid language={language} shifted={shifted} onShiftToggle={() => setShifted(!shifted)} onChar={handleChar} />
+        <div style={{ flex: 1, minWidth: 0, background: '#fff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0', borderRadius: 12, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <CharacterGrid
+            language={language} shifted={shifted}
+            onShiftToggle={() => setShifted(!shifted)}
+            onChar={handleChar}
+            onDeleteChar={handleDeleteChar}
+            onLanguageChange={setLanguage}
+          />
         </div>
 
         {/* Actions */}
-        <div style={{ background: '#fff', border: '1.5px solid #e0ddd6', borderRadius: 10, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, width: 140, flexShrink: 0 }}>
-          <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Actions</div>
-          <button onClick={handleNewText} style={actionBtn('blue')}>➕ New Text</button>
-          <div style={{ fontSize: 9, color: '#999', textAlign: 'center' }}>{documents.length} open</div>
-          <hr style={{ border: 'none', borderTop: '1px solid #e0ddd6', margin: '2px 0' }} />
-          <button onClick={handleDeleteChar} style={actionBtn('red')}>⌫ Char</button>
-          <button onClick={handleDeleteWord} style={actionBtn('red')}>⌫ Word</button>
-          <button onClick={handleClear}      style={actionBtn('red')}>✕ Clear</button>
-          <button onClick={handleUndo}       style={actionBtn('green')}>↩ Undo</button>
+        <div style={{ background: '#fff', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0', borderRadius: 12, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 5, width: 200, flexShrink: 0 }}>
+          <button onClick={handleNewText}  style={aBtn('blue')}>➕ New Text</button>
+          <div style={{ fontSize: 9, color: '#8ab8a0', textAlign: 'center' }}>{documents.length} open</div>
+          <div style={hr} />
+          <ActionRow
+            onDeleteChar={handleDeleteChar}
+            onDeleteWord={handleDeleteWord}
+            onClearAll={handleClear}
+            onUndo={handleUndo}
+            onSearch={handleSearch}
+            onReplace={handleReplace}
+            onReplaceAll={handleReplaceAll}
+          />
         </div>
 
       </div>
@@ -346,61 +383,19 @@ export default function App() {
   )
 }
 
-// ── Button style helpers ──────────────────────────────────────
-function actionBtn(color) {
-  const base = { padding: '4px 8px', borderRadius: 6, borderWidth: '1px', borderStyle: 'solid', cursor: 'pointer', fontSize: 10, width: '100%' }
-  if (color === 'blue')  return { ...base, background: '#EEF4FF', borderColor: '#7FA3D8', color: '#1E40AF', fontWeight: 'bold' }
-  if (color === 'red')   return { ...base, background: '#FCEBEB', borderColor: '#F09595', color: '#A32D2D' }
-  if (color === 'green') return { ...base, background: '#EAF3DE', borderColor: '#97C459', color: '#3B6D11' }
+function aBtn(color) {
+  const base = { padding: '6px 8px', borderRadius: 8, borderWidth: '1px', borderStyle: 'solid', cursor: 'pointer', fontSize: 11, width: '100%', fontWeight: 500 }
+  if (color === 'blue')  return { ...base, background: '#e8f2fb', borderColor: '#7ab0d8', color: '#0a3a6a', fontSize: 13 }
+  if (color === 'purple') return { ...base, background: '#EEEDFE', borderColor: '#7F77DD', color: '#3C3489' }
+  if (color === 'red')   return { ...base, background: '#fef0ee', borderColor: '#f0a090', color: '#8a2010' }
+  if (color === 'green') return { ...base, background: '#e0f5ef', borderColor: '#4db896', color: '#0a5030' }
   return base
 }
 
-const signInBtn  = { height: 32, padding: '0 14px', borderRadius: 8, borderWidth: '1.5px', borderStyle: 'solid', borderColor: '#85B7EB', background: '#E6F1FB', color: '#185FA5', fontSize: 13, fontWeight: 500, cursor: 'pointer', flexShrink: 0 }
-const logoutBtn  = { height: 28, padding: '0 10px', borderRadius: 7, borderWidth: '1px', borderStyle: 'solid', borderColor: '#e0ddd6', background: '#fff', color: '#888', fontSize: 12, cursor: 'pointer' }
+const signInBtn = { height: 32, padding: '0 14px', borderRadius: 8, borderWidth: '1px', borderStyle: 'solid', borderColor: '#4db896', background: '#e0f5ef', color: '#0a5030', fontSize: 13, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }
+const logoutBtn = { height: 28, padding: '0 10px', borderRadius: 7, borderWidth: '1px', borderStyle: 'solid', borderColor: '#c0ddd0', background: '#f4f8f6', color: '#6a8a7a', fontSize: 12, cursor: 'pointer' }
 
-// ── DocumentWindow ────────────────────────────────────────────
-function DocumentWindow({ doc, isActive, onSelect, onClose }) {
-  const [cursorOn, setCursorOn] = React.useState(true)
-  React.useEffect(() => {
-    const t = setInterval(() => setCursorOn(p => !p), 500)
-    return () => clearInterval(t)
-  }, [])
 
-  function segmentStyle(seg) {
-    const f = FONTS.find(f => f.id === seg.font)
-    const s = SIZES.find(s => s.id === seg.size)
-    const c = COLORS.find(c => c.id === seg.color)
-    return {
-      fontFamily: f?.css ?? 'sans-serif', fontSize: s?.px ?? 12,
-      fontWeight: seg.bold ? 700 : 400, fontStyle: seg.italic ? 'italic' : 'normal',
-      textDecoration: seg.underline ? 'underline' : 'none', color: c?.hex ?? '#1a1a1a',
-    }
-  }
-
-  const isEmpty = !doc.segments || doc.segments.length === 0
-
-  return (
-    <div onClick={onSelect} style={{ background: '#fff', border: `1.5px solid ${isActive ? '#7F77DD' : '#e0ddd6'}`, borderRadius: 10, padding: '8px 10px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minHeight: 120, position: 'relative', boxShadow: isActive ? '0 0 0 2px #EEEDFE' : 'none' }}>
-      <button
-        onClick={e => { e.stopPropagation(); onClose() }}
-        style={{ position: 'absolute', top: 4, right: 4, background: '#ffebee', borderWidth: '1px', borderStyle: 'solid', borderColor: '#ef5350', borderRadius: 4, width: 24, height: 24, cursor: 'pointer', color: '#c62828', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-      >✕</button>
-      <div style={{ fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', paddingRight: 30 }}>
-        {doc.filename || 'Untitled'}
-      </div>
-      <div style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', lineHeight: 1.4, fontSize: 11, flex: 1, overflow: 'hidden' }}>
-        {isEmpty
-          ? <span style={{ color: '#bbb', fontStyle: 'italic', fontSize: 10 }}>Empty…</span>
-          : <>{doc.segments.map((seg, i) => <span key={i} style={segmentStyle(seg)}>{seg.text}</span>)}
-              {isActive && <span style={{ display: 'inline-block', width: 1.5, height: '1.1em', background: cursorOn ? '#333' : 'transparent', marginLeft: 1, verticalAlign: 'text-bottom' }} />}
-            </>
-        }
-      </div>
-    </div>
-  )
-}
-
-// ── rebuildToLength ───────────────────────────────────────────
 function rebuildToLength(segments, targetLength) {
   const result = []
   let count = 0
@@ -410,5 +405,37 @@ function rebuildToLength(segments, targetLength) {
     if (seg.text.length <= canTake) { result.push(seg); count += seg.text.length }
     else { result.push({ ...seg, text: seg.text.slice(0, canTake) }); count = targetLength }
   }
+  return result
+}
+
+// Rebuild segments after replacing text - keeps original styles
+function rebuildToReplaced(segments, newPlainText) {
+  const result = []
+  let textIndex = 0
+
+  for (const seg of segments) {
+    if (textIndex >= newPlainText.length) break
+
+    const charsTake = Math.min(seg.text.length, newPlainText.length - textIndex)
+    if (charsTake > 0) {
+      result.push({ ...seg, text: newPlainText.slice(textIndex, textIndex + charsTake) })
+      textIndex += charsTake
+    }
+  }
+
+  // If new text is longer, add remaining text with default style
+  if (textIndex < newPlainText.length) {
+    const remaining = newPlainText.slice(textIndex)
+    result.push({
+      text: remaining,
+      font: 'sans',
+      size: 'md',
+      bold: false,
+      italic: false,
+      underline: false,
+      color: 'black'
+    })
+  }
+
   return result
 }
