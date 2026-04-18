@@ -1,28 +1,31 @@
 import React, { useState } from 'react'
 
-export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUndo, onSearch, onReplace, onReplaceAll }) {
+export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUndo,
+                    onSearch, onReplace, onReplaceAll }) {
   const [showSearchReplace, setShowSearchReplace] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
-  const [matchCount, setMatchCount] = useState(0)
+  const [matchInfo, setMatchInfo] = useState({}) // { docName: count, ... }
 
   function handleSearch() {
     if (!searchTerm.trim()) return
-    const count = onSearch(searchTerm)
-    setMatchCount(count)
+    const info = onSearch(searchTerm)
+    setMatchInfo(info)
   }
 
   function handleReplace() {
-    if (!searchTerm.trim() || !replaceTerm.trim()) return
+    if (!searchTerm.trim()) return
     onReplace(searchTerm, replaceTerm)
-    handleSearch() // Update match count
+    handleSearch()
   }
 
   function handleReplaceAll() {
     if (!searchTerm.trim()) return
     onReplaceAll(searchTerm, replaceTerm)
-    setMatchCount(0)
+    setMatchInfo({})
   }
+
+  const totalMatches = Object.values(matchInfo).reduce((sum, count) => sum + count, 0)
 
   return (
     <div>
@@ -36,23 +39,47 @@ export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUn
         <button onClick={() => setShowSearchReplace(!showSearchReplace)} style={btn('search')}>🔍 Find & Replace</button>
       </div>
 
-      {/* Search & Replace Panel */}
+      {/* Search & Replace Popup - Bottom Positioned */}
       {showSearchReplace && (
         <div style={{
-          marginTop: 10,
-          padding: 10,
-          background: '#f9fdfb',
-          borderRadius: 10,
-          borderWidth: '1px',
-          borderStyle: 'solid',
-          borderColor: '#c0ddd0',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#fff',
+          borderRadius: 14,
+          padding: '16px',
+          width: '90%',
+          maxWidth: 400,
+          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+          zIndex: 2000,
+          maxHeight: '300px',
+          overflowY: 'auto',
         }}>
+          {/* Close button */}
+          <button
+            onClick={() => setShowSearchReplace(false)}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              background: 'none',
+              border: 'none',
+              fontSize: 20,
+              cursor: 'pointer',
+              color: '#999',
+            }}
+          >
+            ✕
+          </button>
+
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#1a3a2a', paddingRight: 24 }}>
+            Find & Replace
+          </div>
+
           {/* Search Input */}
-          <div>
-            <label style={{ fontSize: 11, color: '#5a8a7a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ fontSize: 10, color: '#5a8a7a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>
               Find
             </label>
             <input
@@ -63,24 +90,31 @@ export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUn
               placeholder="Enter text to find..."
               style={{
                 width: '100%',
-                padding: '6px 10px',
-                borderRadius: 6,
+                padding: '8px 10px',
+                borderRadius: 8,
                 border: '1px solid #c0ddd0',
                 fontSize: 12,
                 boxSizing: 'border-box',
               }}
               autoFocus
             />
-            {matchCount > 0 && (
-              <div style={{ fontSize: 10, color: '#4db896', marginTop: 3 }}>
-                {matchCount} match{matchCount !== 1 ? 'es' : ''} found in current document
+            {totalMatches > 0 && (
+              <div style={{ fontSize: 10, color: '#4db896', marginTop: 6 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  Total: {totalMatches} match{totalMatches !== 1 ? 'es' : ''}
+                </div>
+                {Object.entries(matchInfo).map(([docName, count]) => (
+                  <div key={docName} style={{ fontSize: 9, color: '#5a8a7a', marginLeft: 8 }}>
+                    • {docName}: {count} match{count !== 1 ? 'es' : ''}
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
           {/* Replace Input */}
-          <div>
-            <label style={{ fontSize: 11, color: '#5a8a7a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 10, color: '#5a8a7a', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>
               Replace with
             </label>
             <input
@@ -91,8 +125,8 @@ export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUn
               placeholder="Enter replacement text..."
               style={{
                 width: '100%',
-                padding: '6px 10px',
-                borderRadius: 6,
+                padding: '8px 10px',
+                borderRadius: 8,
                 border: '1px solid #c0ddd0',
                 fontSize: 12,
                 boxSizing: 'border-box',
@@ -101,23 +135,36 @@ export default function ActionRow({ onDeleteChar, onDeleteWord, onClearAll, onUn
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <button onClick={handleSearch} style={{ ...btn('search'), flex: 1 }}>
-              Find All
+          <div style={{ display: 'flex', gap: 6, flexDirection: 'column' }}>
+            <button onClick={handleSearch} style={{ ...btn('search'), width: '100%' }}>
+              🔍 Find All
             </button>
             <button
               onClick={handleReplace}
               disabled={!searchTerm.trim()}
-              style={{ ...btn('action'), flex: 1, opacity: !searchTerm.trim() ? 0.5 : 1, cursor: !searchTerm.trim() ? 'not-allowed' : 'pointer' }}
+              style={{
+                ...btn('action'),
+                width: '100%',
+                opacity: !searchTerm.trim() ? 0.5 : 1,
+                cursor: !searchTerm.trim() ? 'not-allowed' : 'pointer'
+              }}
             >
-              Replace
+              Replace Next
             </button>
             <button
               onClick={handleReplaceAll}
               disabled={!searchTerm.trim()}
-              style={{ ...btn('danger'), flex: 1, opacity: !searchTerm.trim() ? 0.5 : 1, cursor: !searchTerm.trim() ? 'not-allowed' : 'pointer' }}
+              style={{
+                ...btn('danger'),
+                width: '100%',
+                opacity: !searchTerm.trim() ? 0.5 : 1,
+                cursor: !searchTerm.trim() ? 'not-allowed' : 'pointer'
+              }}
             >
-              Replace All
+              Replace All Documents
+            </button>
+            <button onClick={() => setShowSearchReplace(false)} style={{ ...btn('gray'), width: '100%' }}>
+              Close
             </button>
           </div>
         </div>
@@ -131,5 +178,7 @@ function btn(variant) {
   if (variant === 'danger') return { ...base, background: '#FCEBEB', borderColor: '#F09595', color: '#A32D2D' }
   if (variant === 'action') return { ...base, background: '#EAF3DE', borderColor: '#97C459', color: '#3B6D11' }
   if (variant === 'search') return { ...base, background: '#EEEDFE', borderColor: '#7F77DD', color: '#3C3489' }
+  if (variant === 'gray') return { ...base, background: '#f4f8f6', borderColor: '#b8ccc4', color: '#3a5a4a' }
   return base
 }
+

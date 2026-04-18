@@ -206,15 +206,25 @@ export default function App() {
 
   // ── Search and Replace ────────────────────────────────────────
   function handleSearch(searchTerm) {
-    if (!activeDocId || !searchTerm) return 0
-    const plain = segmentsToPlainText(segments)
-    let count = 0
-    let index = 0
-    while ((index = plain.indexOf(searchTerm, index)) !== -1) {
-      count++
-      index += searchTerm.length
-    }
-    return count
+    if (!searchTerm) return {}
+
+    const matchInfo = {}
+
+    // Search in all documents
+    documents.forEach(doc => {
+      const plain = segmentsToPlainText(doc.segments)
+      let count = 0
+      let index = 0
+      while ((index = plain.indexOf(searchTerm, index)) !== -1) {
+        count++
+        index += searchTerm.length
+      }
+      if (count > 0) {
+        matchInfo[doc.filename || 'Untitled'] = count
+      }
+    })
+
+    return matchInfo
   }
 
   function handleReplace(searchTerm, replaceTerm) {
@@ -223,28 +233,70 @@ export default function App() {
     const plain = segmentsToPlainText(segments)
     const firstIndex = plain.indexOf(searchTerm)
 
-    if (firstIndex === -1) return // Not found
+    if (firstIndex === -1) return
+
+    // Get the style from the replaced text
+    let charCount = 0
+    let replaceStyle = null
+    for (const seg of segments) {
+      if (charCount + seg.text.length > firstIndex) {
+        replaceStyle = { font: seg.font, size: seg.size, bold: seg.bold, italic: seg.italic, underline: seg.underline, color: seg.color }
+        break
+      }
+      charCount += seg.text.length
+    }
 
     const before = plain.slice(0, firstIndex)
     const after = plain.slice(firstIndex + searchTerm.length)
     const newPlain = before + replaceTerm + after
 
-    const newSegments = rebuildToReplaced(segments, newPlain)
+    const newSegments = rebuildWithReplaceStyle(segments, newPlain, firstIndex, searchTerm.length, replaceTerm.length, replaceStyle)
     setDocuments(prev => prev.map(doc =>
       doc.id === activeDocId ? { ...doc, segments: newSegments } : doc
     ))
   }
 
   function handleReplaceAll(searchTerm, replaceTerm) {
-    if (!activeDocId || !searchTerm) return
+    if (!searchTerm) return
     saveSnapshot()
-    const plain = segmentsToPlainText(segments)
-    const newPlain = plain.replaceAll(searchTerm, replaceTerm)
 
-    const newSegments = rebuildToReplaced(segments, newPlain)
-    setDocuments(prev => prev.map(doc =>
-      doc.id === activeDocId ? { ...doc, segments: newSegments } : doc
-    ))
+    // Replace in all documents
+    setDocuments(prev => prev.map(doc => {
+      const plain = segmentsToPlainText(doc.segments)
+      if (!plain.includes(searchTerm)) return doc
+
+      let newPlain = plain
+      let offset = 0
+      let collectedSegments = [...doc.segments]
+
+      // Find all matches and collect their styles
+      let index = 0
+      while ((index = plain.indexOf(searchTerm, index)) !== -1) {
+        let charCount = 0
+        let replaceStyle = null
+
+        // Get style from original text
+        for (const seg of collectedSegments) {
+          if (charCount + seg.text.length > index) {
+            replaceStyle = { font: seg.font, size: seg.size, bold: seg.bold, italic: seg.italic, underline: seg.underline, color: seg.color }
+            break
+          }
+          charCount += seg.text.length
+        }
+
+        // Rebuild segments with replacement and style
+        const before = newPlain.slice(0, index + offset)
+        const after = newPlain.slice(index + offset + searchTerm.length)
+        newPlain = before + replaceTerm + after
+
+        collectedSegments = rebuildWithReplaceStyle(collectedSegments, newPlain, index + offset, searchTerm.length, replaceTerm.length, replaceStyle)
+
+        offset += (replaceTerm.length - searchTerm.length)
+        index += searchTerm.length
+      }
+
+      return { ...doc, segments: collectedSegments }
+    }))
   }
   function handleStyleChange(setter, value, field) {
     if (!activeDocId) return
@@ -408,34 +460,49 @@ function rebuildToLength(segments, targetLength) {
   return result
 }
 
-// Rebuild segments after replacing text - keeps original styles
-function rebuildToReplaced(segments, newPlainText) {
-  const result = []
-  let textIndex = 0
+
+function rebuildWithReplaceStyle(segments, newPlainText, replaceIndex, oldLength, newLength, replaceStyle) {
+  const result = [];
+  const delta = newLength - oldLength; // How much the text shifted (+ or -)
+  
+  let currentPos = 0;
 
   for (const seg of segments) {
-    if (textIndex >= newPlainText.length) break
+    const segOldStart = currentPos;
+    const segOldEnd = currentPos + seg.text.length;
+    currentPos = segOldEnd; // Keep track of original positions
 
-    const charsTake = Math.min(seg.text.length, newPlainText.length - textIndex)
-    if (charsTake > 0) {
-      result.push({ ...seg, text: newPlainText.slice(textIndex, textIndex + charsTake) })
-      textIndex += charsTake
+    let segNewStart, segNewEnd;
+
+    // 1. Segment is entirely BEFORE the replacement
+    if (segOldEnd <= replaceIndex) {
+      segNewStart = segOldStart;
+      segNewEnd = segOldEnd;
+      result.push({ ...seg, text: newPlainText.slice(segNewStart, segNewEnd) });
+    } 
+    // 2. Segment contains or overlaps the START of the replacement
+    else if (segOldStart <= replaceIndex && segOldEnd > replaceIndex) {
+      // Piece before replacement
+      if (replaceIndex > segOldStart) {
+        result.push({ ...seg, text: newPlainText.slice(segOldStart, replaceIndex) });
+      }
+      // The replacement itself (using the captured style)
+      result.push({ ...replaceStyle, text: newPlainText.slice(replaceIndex, replaceIndex + newLength) });
+      
+      // Piece after replacement (if any remains in this segment)
+      if (segOldEnd > replaceIndex + oldLength) {
+        const remainingInSeg = newPlainText.slice(replaceIndex + newLength, segOldEnd + delta);
+        if (remainingInSeg) result.push({ ...seg, text: remainingInSeg });
+      }
+    }
+    // 3. Segment is entirely AFTER the replacement
+    else if (segOldStart >= replaceIndex + oldLength) {
+      segNewStart = segOldStart + delta;
+      segNewEnd = segOldEnd + delta;
+      result.push({ ...seg, text: newPlainText.slice(segNewStart, segNewEnd) });
     }
   }
 
-  // If new text is longer, add remaining text with default style
-  if (textIndex < newPlainText.length) {
-    const remaining = newPlainText.slice(textIndex)
-    result.push({
-      text: remaining,
-      font: 'sans',
-      size: 'md',
-      bold: false,
-      italic: false,
-      underline: false,
-      color: 'black'
-    })
-  }
-
-  return result
+  // Final cleanup: Merge adjacent segments with identical styles to keep data clean
+  return result.filter(s => s.text.length > 0);
 }

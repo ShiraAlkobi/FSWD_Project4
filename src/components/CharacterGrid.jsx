@@ -3,7 +3,8 @@ import { CHAR_LAYOUTS } from '../data/keyboardData.js'
 import LanguageRow from './LanguageRow.jsx'
 
 
-export default function CharacterGrid({ language, shifted, onShiftToggle, onChar, onDeleteChar, onLanguageChange }) {
+export default function CharacterGrid({ language, shifted, onShiftToggle, 
+            onChar, onDeleteChar, onLanguageChange }) {
   const layoutKey = (language === 'en' && shifted) ? 'EN' : language
   const rows = CHAR_LAYOUTS[layoutKey] ?? CHAR_LAYOUTS['en']
 

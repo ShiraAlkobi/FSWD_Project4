@@ -14,7 +14,8 @@ export default function FileBar({ currentFile, segments, onOpen, onNew, onFileCh
   }, [showOpenList, currentUser])
 
   function showMsg(msg, error = false) {
-    setMessage(msg); setIsError(error)
+    setMessage(msg); 
+    setIsError(error)
     setTimeout(() => setMessage(''), 2500)
   }
 

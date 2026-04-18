@@ -86,5 +86,3 @@ function btn(active) {
     fontWeight: active ? 600 : 400,
   }
 }
-
-const labelStyle = { fontSize: 10, color: '#aaa', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5 }

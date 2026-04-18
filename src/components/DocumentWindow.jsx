@@ -12,9 +12,9 @@ export default function DocumentWindow({ doc, isActive, onSelect, onClose, size 
   function getCursorWidth() {
     const cursorWidths = {
       'sm': 1.5,
-      'md': 1.8,
-      'lg': 2.3,
-      'xl': 2.8,
+      'md': 1.7,
+      'lg': 2.1,
+      'xl': 2.4,
     }
     return cursorWidths[size] || 1.5
   }
@@ -56,7 +56,7 @@ export default function DocumentWindow({ doc, isActive, onSelect, onClose, size 
         {isEmpty
           ? <span style={{ color: '#b8d8c8', fontStyle: 'italic', fontSize: 15 }}>Empty…</span>
           : <>{doc.segments.map((seg, i) => <span key={i} style={segStyle(seg)}>{seg.text}</span>)}
-              {isActive && <span style={{ display: 'inline-block', width: getCursorWidth(), height: '1.1em', background: cursorOn ? '#2a7a50' : 'transparent', marginLeft: 1, verticalAlign: 'text-bottom' }} />}
+              {isActive && <span style={{ display: 'inline-block', width: getCursorWidth(), height: '1.1em', background: cursorOn ? '#2a7a50' : 'transparent', marginLeft: 1, verticalAlign: 'middle' }} />}
             </>
         }
       </div>
